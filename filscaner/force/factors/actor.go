@@ -6,6 +6,7 @@ import (
 	"github.com/filecoin-project/go-address"
 	"github.com/filecoin-project/lotus/chain/actors"
 	"github.com/filecoin-project/lotus/chain/types"
+	builtin0 "github.com/filecoin-project/specs-actors/actors/builtin"
 	"github.com/ipfs/go-cid"
 )
 
@@ -15,9 +16,9 @@ var (
 	actorInfos = map[cid.Cid]ActorInfo{}
 
 	addressToCode = map[address.Address]cid.Cid{
-		actors.InitAddress:          actors.InitCodeCid,
-		actors.StoragePowerAddress:  actors.StoragePowerCodeCid,
-		actors.StorageMarketAddress: actors.StorageMarketCodeCid,
+		builtin0.InitActorAddr:          builtin0.InitActorCodeID,
+		builtin0.StoragePowerActorAddr:  builtin0.StoragePowerActorCodeID,
+		builtin0.StorageMarketActorAddr: builtin0.StorageMarketActorCodeID,
 	}
 )
 

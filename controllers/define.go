@@ -7,18 +7,21 @@ import (
 	"filscan_lotus/filscanproto"
 	"filscan_lotus/models"
 	"fmt"
-	"github.com/astaxie/beego"
-	"github.com/astaxie/beego/config"
-	"github.com/filecoin-project/lotus/api"
-	"github.com/filecoin-project/lotus/api/client"
-	"github.com/go-redis/redis"
-	"go.uber.org/zap"
 	log2 "log"
 	"math"
 	"math/rand"
 	"reflect"
 	"strconv"
 	"time"
+
+	cliutil "github.com/filecoin-project/lotus/cli/util"
+
+	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/config"
+	"github.com/filecoin-project/lotus/api"
+	"github.com/filecoin-project/lotus/api/client"
+	"github.com/go-redis/redis"
+	"go.uber.org/zap"
 )
 
 var UserTokenMap map[string]*vcode_t
@@ -181,14 +184,19 @@ func ArgInit() {
 
 func LotusInit() {
 	lotusGetWay := conf("lotusGetWay")
-	cli, stopper, err := client.NewFullNodeRPC("ws://"+lotusGetWay+"/rpc/v0", nil)
+	ai := cliutil.ParseApiInfo(lotusGetWay)
+	url, err := ai.DialArgs()
+	if err != nil {
+		log2.Fatalln(ps("get lotus connect err, ,err=[%v]", err))
+	}
+	cli, stopper, err := client.NewFullNodeRPC(url, ai.AuthHeader())
 	if err != nil {
 		defer stopper()
 		log2.Fatalln(ps("get lotus connect err, ,err=[%v]", err))
 	} else {
 		LotusApi = cli
 	}
-	commonclient, commonstopper, err := client.NewCommonRPC("ws://"+lotusGetWay+"/rpc/v0", nil)
+	commonclient, commonstopper, err := client.NewCommonRPC(url, ai.AuthHeader())
 	if err != nil {
 		defer commonstopper()
 		log2.Fatalln(ps("get lotus commonclient connect err, ,err=[%v]", err))
