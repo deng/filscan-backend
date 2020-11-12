@@ -4,14 +4,15 @@ import (
 	"context"
 	"filscan_lotus/utils"
 	"fmt"
-	"github.com/filecoin-project/lotus/build"
-	"github.com/filecoin-project/lotus/chain/types"
 	"math/big"
 
-	"github.com/filecoin-project/lotus/chain/vm"
+	"github.com/filecoin-project/lotus/build"
+	"github.com/filecoin-project/lotus/chain/types"
+
+	"time"
+
 	"github.com/globalsign/mgo"
 	"gopkg.in/mgo.v2/bson"
-	"time"
 )
 
 const TipsetRewardsCollection = "tipset_rewards"
@@ -29,7 +30,7 @@ type TipsetBlockRewards struct {
 	TimeStamp             uint64                            `bson:"time_stamp"`
 	TipsetReward          *BsonBigint                       `bson:"current_tipset_rewards"`
 	TotalRealeasedRewards *BsonBigint                       `bson:"chain_released_rewards"`
-	Miners                map[string]*miners_blocks_rewards `bson"miners"`
+	Miners                map[string]*miners_blocks_rewards `bson:"miners"`
 }
 
 func Create_miner_index() {
@@ -128,7 +129,7 @@ func Loop_WalkThroughTipsetRewards(ctx context.Context) error {
 		}
 	}
 
-	remaining_filcoin := types.FromFil(build.TotalFilecoin)
+	remaining_filcoin := types.FromFil(build.FilBase)
 	remaining_filcoin.Sub(remaining_filcoin.Int, last_tipset_rewards.TotalRealeasedRewards.Int)
 
 	for {
@@ -162,7 +163,7 @@ func Loop_WalkThroughTipsetRewards(ctx context.Context) error {
 					previouse_tipset_rewards = last_tipset_rewards
 				}
 
-				block_reward = vm.MiningReward(remaining_filcoin)
+				block_reward = MiningReward(remaining_filcoin)
 
 				// Block.BlockHeader.Timestamp
 				tipset_rewards = &TipsetBlockRewards{
@@ -189,6 +190,18 @@ func Loop_WalkThroughTipsetRewards(ctx context.Context) error {
 
 		bulkUpsertTipsetRewards(tipset_rewards_map)
 	}
+}
+
+// MiningReward returns correct mining reward
+//   coffer is amount of FIL in NetworkAddress
+func MiningReward(remainingReward types.BigInt) types.BigInt {
+	ci := big.NewInt(0).Set(remainingReward.Int)
+	res := ci.Mul(ci, build.InitialRewardBalance)
+	fasm := big.NewInt(int64(build.FilAllocStorageMining))
+	res = res.Div(res, fasm)
+	bpe := big.NewInt(int64(build.BlocksPerEpoch))
+	res = res.Div(res, bpe)
+	return types.BigInt{res}
 }
 
 func bulkUpsertTipsetRewards(tipset_rewards map[uint64]*TipsetBlockRewards) error {

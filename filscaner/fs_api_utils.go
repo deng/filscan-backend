@@ -4,15 +4,17 @@ import (
 	errs "filscan_lotus/error"
 	"filscan_lotus/utils"
 	"fmt"
-	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/lotus/api"
-	"github.com/filecoin-project/lotus/chain/actors"
-	"github.com/filecoin-project/lotus/chain/types"
-	"github.com/filecoin-project/lotus/chain/vm"
-	core "github.com/libp2p/go-libp2p-core"
 	"math/big"
 
 	"filscan_lotus/models"
+
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/abi"
+	b "github.com/filecoin-project/go-state-types/big"
+	"github.com/filecoin-project/lotus/api"
+	p "github.com/filecoin-project/lotus/chain/actors/builtin/power"
+	"github.com/filecoin-project/lotus/chain/types"
+	core "github.com/libp2p/go-libp2p-core"
 )
 
 func (fs *Filscaner) api_miner_state_at_tipset(miner_addr address.Address, tipset *types.TipSet) (*models.MinerStateAtTipset, error) {
@@ -20,22 +22,23 @@ func (fs *Filscaner) api_miner_state_at_tipset(miner_addr address.Address, tipse
 		peerid              core.PeerID
 		owner               address.Address
 		power               api.MinerPower
-		sectors             []*api.ChainSectorInfo
+		sectors             []*api.SectorInfo
 		sector_size         uint64
 		proving_sector_size = models.NewBigintFromInt64(0)
 		err                 error
 	)
 
 	// TODO:把minerPeerId和MinerSectorSize缓存起来,可以减少2/6的lotus rpc访问量
-	if power, err = fs.api.StateMinerPower(fs.ctx, miner_addr, tipset); err != nil {
+	minerPower, err := fs.api.StateMinerPower(fs.ctx, miner_addr, tipset.Key())
+	if err != nil {
 		err_message := err.Error()
-
 		if err_message == "failed to get miner power from chain (exit code 1)" {
-
 			fs.Printf("get miner(%s) power failed, message:%s\n", miner_addr.String(), err_message)
-
-			if power, err = fs.api.StateMinerPower(fs.ctx, address.Undef, tipset); err == nil {
-				power.MinerPower.Int = big.NewInt(0)
+			if power, err := fs.api.StateMinerPower(fs.ctx, address.Undef, tipset.Key()); err == nil {
+				power.MinerPower = p.Claim{
+					RawBytePower:    b.Zero(),
+					QualityAdjPower: b.Zero(),
+				}
 			}
 		}
 		if err != nil {
@@ -44,54 +47,36 @@ func (fs *Filscaner) api_miner_state_at_tipset(miner_addr address.Address, tipse
 		}
 	}
 
-	if sectors, err = fs.api.StateMinerSectors(fs.ctx, miner_addr, tipset); err != nil {
-		fs.Printf("get miner sector failed, message:%s\n", err.Error())
+	secCounts, err := fs.api.StateMinerSectorCount(fs.ctx, miner_addr, tipset.Key())
+	if err != nil {
+		fs.Printf("get state miner sector count failed, message:%s\n", err.Error())
 		return nil, err
 	}
 
-	if peerid, err = fs.api.StateMinerPeerID(fs.ctx, miner_addr, tipset); err != nil {
+	proving := secCounts.Active + secCounts.Faulty
+
+	minerInfo, err := fs.api.StateMinerInfo(fs.ctx, miner_addr, tipset.Key())
+	if err != nil {
 		// fs.Printf("get peerid failed, address=%s message:%s\n", miner_addr.String(), err.Error())
 	}
 
-	if owner, err = fs.api.StateMinerWorker(fs.ctx, miner_addr, tipset); err != nil {
-		fs.Printf("get miner worker failed, message:%s\n", err.Error())
-		return nil, err
-	}
+	sector_size = uint64(minerInfo.SectorSize)
+	proving_sector_size.Set(big.NewInt(0).Mul(big.NewInt(int64(sector_size)), big.NewInt(int64(proving))))
 
-	if sector_size, err = fs.api.StateMinerSectorSize(fs.ctx, miner_addr, tipset); err != nil {
-		fs.Printf("get miner sectorsize failed, message:%s\n", err.Error())
-		return nil, err
+	if fs.latest_total_power == nil {
+		fs.latest_total_power = big.NewInt(0)
 	}
-
-	if proving_sector, err := fs.api.StateMinerProvingSet(fs.ctx, miner_addr, tipset); err != nil {
-		fs.Printf("state_miner_proving_set failed, message:%s\n", err.Error())
-	} else {
-		proving_sector_size.Set(big.NewInt(0).Mul(big.NewInt(int64(sector_size)), big.NewInt(int64(len(proving_sector)))))
-	}
-
-	// 这里应该是把错误的数据使用最近的数据来代替19807040628566131532430835712
-	if len(power.TotalPower.String()) >= 29 {
-		if fs.latest_total_power != nil {
-			power.TotalPower.Set(fs.latest_total_power)
-		} else {
-			power.TotalPower.SetUint64(0)
-		}
-	} else {
-		if fs.latest_total_power == nil {
-			fs.latest_total_power = big.NewInt(0)
-		}
-		fs.latest_total_power.Set(power.TotalPower.Int)
-	}
+	fs.latest_total_power.SetInt64(power.TotalPower.QualityAdjPower.Int64())
 
 	miner := &models.MinerStateAtTipset{
 		PeerId:            peerid.String(),
 		MinerAddr:         miner_addr.String(),
-		Power:             models.NewBigInt(power.MinerPower.Int),
-		TotalPower:        models.NewBigInt(power.TotalPower.Int),
+		Power:             models.NewBigintFromInt64(power.MinerPower.QualityAdjPower.Int64()),
+		TotalPower:        models.NewBigintFromInt64(power.TotalPower.QualityAdjPower.Int64()),
 		SectorSize:        sector_size,
 		WalletAddr:        owner.String(),
 		SectorCount:       uint64(len(sectors)),
-		TipsetHeight:      tipset.Height(),
+		TipsetHeight:      uint64(tipset.Height()),
 		ProvingSectorSize: proving_sector_size,
 		MineTime:          tipset.MinTimestamp(),
 	}
@@ -119,8 +104,8 @@ func (fs *Filscaner) api_child_tipset(tipset *types.TipSet) (*types.TipSet, erro
 	var header_height = fs.header_height
 	fs.mutx_for_numbers.Unlock()
 
-	for i := tipset.Height() + 1; i < header_height; i++ {
-		if child, err := fs.api.ChainGetTipSetByHeight(fs.ctx, i, nil); err != nil {
+	for i := uint64(tipset.Height()) + 1; i < header_height; i++ {
+		if child, err := fs.api.ChainGetTipSetByHeight(fs.ctx, abi.ChainEpoch(i), types.EmptyTSK); err != nil {
 			return nil, err
 		} else {
 			if child.Parents().String() == tipset.Key().String() {
@@ -136,10 +121,12 @@ func (fs *Filscaner) api_child_tipset(tipset *types.TipSet) (*types.TipSet, erro
 	return nil, errs.ErrNotFound
 }
 
-func (fs *Filscaner) API_block_rewards(tipset *types.TipSet) *big.Int {
-	actor, err := fs.api.StateGetActor(fs.ctx, actors.NetworkAddress, tipset)
+func (fs *Filscaner) API_block_rewards(actorAddress address.Address, tipset *types.TipSet) *big.Int {
+	actor, err := fs.api.StateGetActor(fs.ctx, actorAddress, tipset.Key())
 	if err != nil {
 		return nil
 	}
-	return vm.MiningReward(actor.Balance).Int
+	balance := types.NewInt(actor.Balance.Uint64())
+	reward := models.MiningReward(balance)
+	return reward.Int
 }

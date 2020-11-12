@@ -5,8 +5,10 @@ import (
 	"filscan_lotus/models"
 	"filscan_lotus/utils"
 	"fmt"
-	"github.com/filecoin-project/lotus/chain/types"
 	"sync"
+
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/lotus/chain/types"
 )
 
 // use *Tipset_block_messages as list.element.Value
@@ -202,7 +204,7 @@ func (fsc *Fs_tipset_cache) FindTipset_height(height uint64) *models.Element {
 	for back := fsc.list.Back(); back != nil; back = back.Prev() {
 		block_message := back.Value.(*Tipset_block_messages)
 
-		if block_message.Tipset.Height() == height {
+		if block_message.Tipset.Height() == abi.ChainEpoch(height) {
 			return &models.Element{block_message.Tipset, block_message.fs_block_message}
 		}
 	}
@@ -219,11 +221,11 @@ func (fsc *Fs_tipset_cache) FindTipset_in_height(start, end uint64) []*models.El
 	for back := fsc.list.Back(); back != nil; back = back.Prev() {
 		block_message := back.Value.(*Tipset_block_messages)
 
-		if block_message.Tipset.Height() > end {
+		if block_message.Tipset.Height() > abi.ChainEpoch(end) {
 			break
 		}
 
-		if block_message.Tipset.Height() < start {
+		if block_message.Tipset.Height() < abi.ChainEpoch(start) {
 			continue
 		}
 
@@ -391,7 +393,7 @@ func (fsc *Fs_tipset_cache) FindMesage_address(address, fromto, method string) [
 				break
 			} else if fromto == "to" && msg.Message.To.String() != address {
 				break
-			} else if msg.Message.From.String()!=address && msg.Message.To.String()!=address {
+			} else if msg.Message.From.String() != address && msg.Message.To.String() != address {
 				break
 			}
 			if method != "" && msg.MethodName != method {

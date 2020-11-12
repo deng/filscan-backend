@@ -6,12 +6,14 @@ import (
 	"filscan_lotus/models"
 	"filscan_lotus/utils"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/lotus/build"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/ipfs-force-community/common"
-	"math/big"
-	"time"
 )
 
 var resp_success = &common.Result{Code: 3, Msg: "success"}
@@ -52,8 +54,8 @@ func (fs *Filscaner) FilNetworkBlockReward(ctx context.Context, req *FutureBlock
 	return resp, nil
 }
 
-var TOTAL_REWARDS = types.FromFil(build.MiningRewardTotal).Int
-var TOTAL_FILCOIN = types.FromFil(build.TotalFilecoin).Int
+var TOTAL_REWARDS = types.FromFil(build.FilAllocStorageMining).Int
+var TOTAL_FILCOIN = types.FromFil(build.FilBase).Int
 
 // func calculate_remain_reward_at_block(height uint64) (*big.Int, *big.Int) {
 // 	remaining := types.NewInt(0)
@@ -121,18 +123,22 @@ func (fs *Filscaner) FilOutStanding(ctx context.Context, req *FilOutstandReq) (*
 
 		filoutresp_data.Floating = utils.ToFilStr(max_released_reward)
 
-		tipset, err := fs.api.ChainGetTipSetByHeight(fs.ctx, max_height, nil)
+		tipset, err := fs.api.ChainGetTipSetByHeight(fs.ctx, abi.ChainEpoch(max_height), types.EmptyTSK)
 		if err != nil {
 			fs.Printf("chain_get_tipset_by_height(%d) failed,message;%s\n", err.Error())
 			continue
 		}
 
-		pleged, err := fs.api.StatePledgeCollateral(ctx, tipset)
-		if err != nil {
-			set_with_last_data(data, filoutresp_data)
-			fs.Printf("StatePledgeCollateral failed,message;%s\n", err.Error())
-			return nil, err
-		}
+		//TODO:fs.api.StatePledgeCollateral
+		/*
+			pleged, err := fs.api.StatePledgeCollateral(ctx, tipset)
+			if err != nil {
+				set_with_last_data(data, filoutresp_data)
+				fs.Printf("StatePledgeCollateral failed,message;%s\n", err.Error())
+				return nil, err
+			}
+		*/
+		pleged := types.NewInt(0)
 
 		filoutresp_data.PlegeCollateral = utils.ToFilStr(pleged.Int)
 		filoutresp_data.Outstanding = fmt.Sprintf("%.4f", utils.ToFil(max_released_reward)+utils.ToFil(pleged.Int))
@@ -324,27 +330,27 @@ func (fs *Filscaner) BalanceIncreased(ctx context.Context, req *BalanceIncreaseR
 		return resp, nil
 	}
 
-	tipset_start, err := fs.api.ChainGetTipSetByHeight(fs.ctx, height_start, nil)
+	tipset_start, err := fs.api.ChainGetTipSetByHeight(fs.ctx, abi.ChainEpoch(height_start), types.EmptyTSK)
 	if err != nil {
 		fs.Printf("chain_get_tipset_by_height faild, message:%s\n", err.Error())
 		resp.Res = resp_lotus_api_error
 		return resp, nil
 	}
 
-	tipset_end, err := fs.api.ChainGetTipSetByHeight(fs.ctx, height_end, nil)
+	tipset_end, err := fs.api.ChainGetTipSetByHeight(fs.ctx, abi.ChainEpoch(height_end), types.EmptyTSK)
 	if err != nil {
 		fs.Printf("chain_get_tipset_by_height faild, message:%s\n", err.Error())
 		resp.Res = resp_lotus_api_error
 		return resp, nil
 	}
 
-	balance_start, err := fs.api.StateGetActor(fs.ctx, miner, tipset_start)
+	balance_start, err := fs.api.StateGetActor(fs.ctx, miner, tipset_start.Key())
 	if err != nil {
 		fs.Printf("state_get_actor faild, message:%s\n", err.Error())
 		resp.Res = resp_lotus_api_error
 		return resp, nil
 	}
-	balance_end, err := fs.api.StateGetActor(fs.ctx, miner, tipset_end)
+	balance_end, err := fs.api.StateGetActor(fs.ctx, miner, tipset_end.Key())
 	if err != nil {
 		fs.Printf("state_get_actor faild, message:%s\n", err.Error())
 		resp.Res = resp_lotus_api_error

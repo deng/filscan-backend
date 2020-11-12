@@ -4,7 +4,9 @@ import (
 	errs "filscan_lotus/error"
 	"filscan_lotus/filscaner/force/factors"
 	"filscan_lotus/models"
-	"github.com/filecoin-project/lotus/chain/actors"
+
+	builtin0 "github.com/filecoin-project/specs-actors/actors/builtin"
+
 	"github.com/filecoin-project/lotus/chain/types"
 )
 
@@ -40,12 +42,12 @@ func ParseActorMessage(message *types.Message) (*factors.ActorInfo, *factors.Met
 	}
 	actor, exist := factors.LookupByAddress(message.To)
 	if !exist {
-		if actor, exist = factors.Lookup(actors.StorageMinerCodeCid); !exist {
+		if actor, exist = factors.Lookup(builtin0.StorageMinerActorCodeID); !exist {
 			return nil, nil, errs.ErrActorNotFound
 		}
 	}
 
-	method, exist := actor.LookupMethod(message.Method)
+	method, exist := actor.LookupMethod(uint64(message.Method))
 	if !exist {
 		return nil, nil, errs.ErrMethodNotFound
 	}

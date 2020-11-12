@@ -2,9 +2,12 @@ package filscaner
 
 import (
 	"fmt"
+	"math/big"
+	"time"
+
+	"github.com/filecoin-project/go-state-types/abi"
 	"github.com/filecoin-project/lotus/chain/types"
 	"github.com/ipfs/go-cid"
-	"time"
 )
 
 // TODO: use fs.api.StateChangedActors(),
@@ -125,8 +128,8 @@ func (fs *Filscaner) sync_tipset_cache_fall_through(child, parent *types.TipSet)
 func (fs *Filscaner) sync_tipset_with_range(last_ *types.TipSet, head_height, foot_height uint64) (*types.TipSet, error) {
 	fs.Printf("do_sync_lotus, from:%d, to:%d\n", head_height, foot_height)
 
-	head_tipset, err := fs.api.ChainGetTipSetByHeight(fs.ctx, head_height, last_)
-	foot_tipset, err := fs.api.ChainGetTipSetByHeight(fs.ctx, foot_height, last_)
+	head_tipset, err := fs.api.ChainGetTipSetByHeight(fs.ctx, abi.ChainEpoch(head_height), last_.Key())
+	foot_tipset, err := fs.api.ChainGetTipSetByHeight(fs.ctx, abi.ChainEpoch(foot_height), last_.Key())
 	tipset_list, err := fs.api.ChainGetPath(fs.ctx, foot_tipset.Key(), head_tipset.Key())
 	if err != nil {
 		fs.Printf("error:api.chain_get_path failed, message:%s\n", err.Error())
@@ -273,12 +276,16 @@ func (fs *Filscaner) api_tipset_blockmessages_and_receipts(tipset *types.TipSet,
 	}
 
 	tpst_blms.Tipset = tipset
-	tpst_blms.BlockRwds = fs.API_block_rewards(tipset)
+	tpst_blms.BlockRwds = big.NewInt(0)
+	for _, blm := range tpst_blms.BlockMsgs {
+		tpst_blms.BlockRwds.Add(tpst_blms.BlockRwds, fs.API_block_rewards(blm.Block.Miner, tipset))
+	}
+	//tpst_blms.BlockRwds = big.NewInt(blockRwds)
 	// todo: for each block, it's block rewards shold multi it's epostprof.candidates.length
 	//   that's real 'block rewards' geting by miner
 	/* for _, blm := range tpst_blms.BlockMsgs {
-			len(blm.Block.EPostProof.Candidates)
-		}*/
+		len(blm.Block.EPostProof.Candidates)
+	}*/
 
 	tpst_blms.Messages, err = fs.api.ChainGetParentMessages(fs.ctx, child_cid)
 	if err != nil {

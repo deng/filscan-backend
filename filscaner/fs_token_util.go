@@ -14,7 +14,7 @@ import (
 
 // const PrecisionDefault = 8 // float64(0.00001)
 
-var blocksPerEpoch = big.NewInt(build.BlocksPerEpoch)
+var blocksPerEpoch = big.NewInt(int64(build.BlocksPerEpoch))
 
 // 返回每个周期中的奖励filcoin数量和释放的奖励数量
 func (fs *Filscaner) future_block_rewards(timediff, repeate uint64) ([]*big.Int, *big.Int, error) {
@@ -96,7 +96,7 @@ func (fs *Filscaner) list_genesis_miners() (*Tipset_miner_messages, error) {
 
 	// mminers := (utils.SlcToMap(miners, "", false)).(map[string]struct{})
 	tipest_miner_messages := &Tipset_miner_messages{
-		miners:make(map[string]struct{}),
+		miners: make(map[string]struct{}),
 		tipset: tipset}
 
 	for _, v := range miners {

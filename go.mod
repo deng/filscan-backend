@@ -11,7 +11,10 @@ require (
 	github.com/coreos/go-systemd/v22 v22.0.0
 	github.com/filecoin-project/filecoin-ffi v0.30.4-0.20200716204036-cddc56607e1d
 	github.com/filecoin-project/go-address v0.0.4
+	github.com/filecoin-project/go-state-types v0.0.0-20201013222834-41ea465f274f
 	github.com/filecoin-project/lotus v0.0.0-00010101000000-000000000000
+	github.com/filecoin-project/specs-actors v0.9.12
+	github.com/filecoin-project/specs-actors/v2 v2.2.0
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
 	github.com/go-redis/redis v6.15.6+incompatible
 	github.com/golang/protobuf v1.4.2
@@ -34,8 +37,6 @@ require (
 	google.golang.org/grpc v1.29.1
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
 	gopkg.in/urfave/cli.v2 v2.0.0-20180128182452-d3ae77c26ac8
-	github.com/filecoin-project/specs-actors v0.9.12
-	github.com/filecoin-project/specs-actors/v2 v2.2.0
 )
 
 replace github.com/ipfs/go-filestore => github.com/ipfs/go-filestore v1.0.0

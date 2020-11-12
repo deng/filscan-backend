@@ -2,12 +2,16 @@ package filscaner
 
 import (
 	"filscan_lotus/models"
-	"github.com/filecoin-project/lotus/chain/store"
 	"math/big"
 	"time"
+
+	"github.com/filecoin-project/go-state-types/abi"
+	"github.com/filecoin-project/lotus/api"
+	"github.com/filecoin-project/lotus/chain/store"
+	"github.com/filecoin-project/lotus/chain/types"
 )
 
-func (fs *Filscaner) display_notifi_(header *store.HeadChange) {
+func (fs *Filscaner) display_notifi_(header *api.HeadChange) {
 	parent, _ := fs.api.ChainGetTipSet(fs.ctx, header.Val.Parents())
 	head, _ := fs.api.ChainHead(fs.ctx)
 
@@ -17,7 +21,7 @@ func (fs *Filscaner) display_notifi_(header *store.HeadChange) {
 		head.Height(), head.Key())
 }
 
-func (fs *Filscaner) handle_new_headers(headers []*store.HeadChange) {
+func (fs *Filscaner) handle_new_headers(headers []*api.HeadChange) {
 
 	for _, header := range headers {
 		if header == nil {
@@ -35,7 +39,7 @@ func (fs *Filscaner) handle_new_headers(headers []*store.HeadChange) {
 
 func (fs *Filscaner) sync_tipset_with_heights(heights []uint64) error {
 	for _, height := range heights {
-		tipset, err := fs.api.ChainGetTipSetByHeight(fs.ctx, height, nil)
+		tipset, err := fs.api.ChainGetTipSetByHeight(fs.ctx, abi.ChainEpoch(height), types.EmptyTSK)
 		if err != nil {
 			//TODO:判断是否为lotus节点crush掉, 或者是网络问题,
 			// 如果是, 应该过一段时间后, 重新尝试获取
@@ -48,7 +52,7 @@ func (fs *Filscaner) sync_tipset_with_heights(heights []uint64) error {
 		case <-fs.ctx.Done():
 			return fs.ctx.Err()
 		default:
-			fs.head_notifier <- &store.HeadChange{Val: tipset, Type: store.HCApply}
+			fs.head_notifier <- &api.HeadChange{Val: tipset, Type: store.HCApply}
 		}
 		// time.Sleep(time.Millisecond * 200)
 	}
@@ -158,7 +162,7 @@ func (fs *Filscaner) loop_init_block_rewards() {
 
 	// 每25个height间隔一个数据库记录
 	// 每20 * 25个height间隔保存一次
-	for i := head_block_rewards.Height; i < head_height; i++ {
+	for i := head_block_rewards.Height; i < uint64(head_height); i++ {
 		rewards := SelfTipsetRewards(total_rewards)
 
 		total_rewards.Sub(total_rewards, rewards)

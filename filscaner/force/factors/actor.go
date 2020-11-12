@@ -4,9 +4,15 @@ import (
 	"reflect"
 
 	"github.com/filecoin-project/go-address"
-	"github.com/filecoin-project/lotus/chain/actors"
 	"github.com/filecoin-project/lotus/chain/types"
 	builtin0 "github.com/filecoin-project/specs-actors/actors/builtin"
+	init_ "github.com/filecoin-project/specs-actors/actors/builtin/init"
+	"github.com/filecoin-project/specs-actors/actors/builtin/market"
+	"github.com/filecoin-project/specs-actors/actors/builtin/miner"
+	"github.com/filecoin-project/specs-actors/actors/builtin/multisig"
+	"github.com/filecoin-project/specs-actors/actors/builtin/paych"
+	"github.com/filecoin-project/specs-actors/actors/builtin/power"
+	builtin2 "github.com/filecoin-project/specs-actors/v2/actors/builtin"
 	"github.com/ipfs/go-cid"
 )
 
@@ -27,7 +33,6 @@ var (
 	TypeNull     = reflect.TypeOf(null)
 	TypeNil      = reflect.TypeOf(nil)
 	TypeActorPtr = reflect.TypeOf((*types.Actor)(nil))
-	TypeVMCtx    = reflect.TypeOf(new(types.VMContext)).Elem()
 )
 
 type actorInterface interface {
@@ -35,18 +40,20 @@ type actorInterface interface {
 }
 
 func init() {
-	actorInfos[actors.AccountCodeCid] = ActorInfo{
+	actorInfos[builtin0.AccountActorCodeID] = ActorInfo{
 		Name:      "AccountActor",
 		Methods:   []MethodInfo{},
 		methodMap: map[uint64]int{},
 	}
 
-	actorInfos[actors.InitCodeCid] = parseActor(actors.InitActor{}, actors.IAMethods)
-	actorInfos[actors.StorageMinerCodeCid] = parseActor(actors.StorageMinerActor{}, actors.MAMethods)
-	actorInfos[actors.MultisigCodeCid] = parseActor(actors.MultiSigActor{}, actors.MultiSigMethods)
-	actorInfos[actors.StorageMarketCodeCid] = parseActor(actors.StorageMarketActor{}, actors.SMAMethods)
-	actorInfos[actors.StoragePowerCodeCid] = parseActor(actors.StoragePowerActor{}, actors.SPAMethods)
-	actorInfos[actors.PaymentChannelCodeCid] = parseActor(actors.PaymentChannelActor{}, actors.PCAMethods)
+	//actorInfos[builtin0.AccountActorCodeID] = parseActor(account.Actor{}, builtin2.MethodsAccount)
+
+	actorInfos[builtin0.InitActorCodeID] = parseActor(init_.Actor{}, builtin2.MethodsInit)
+	actorInfos[builtin0.StorageMinerActorCodeID] = parseActor(miner.Actor{}, builtin2.MethodsMiner)
+	actorInfos[builtin0.MultisigActorCodeID] = parseActor(multisig.Actor{}, builtin2.MethodsMultisig)
+	actorInfos[builtin0.StorageMarketActorCodeID] = parseActor(market.Actor{}, builtin2.MethodsMarket)
+	actorInfos[builtin0.StoragePowerActorCodeID] = parseActor(power.Actor{}, builtin2.MethodsPower)
+	actorInfos[builtin0.PaymentChannelActorCodeID] = parseActor(paych.Actor{}, builtin2.MethodsPaych)
 }
 
 // LookupByAddress find actor with given code
@@ -134,7 +141,7 @@ func getMethodParam(meth interface{}) reflect.Type {
 		return TypeNull
 	}
 
-	if metht.In(0) != TypeActorPtr || metht.In(1) != TypeVMCtx {
+	if metht.In(0) != TypeActorPtr {
 		return TypeNull
 	}
 

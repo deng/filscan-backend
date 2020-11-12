@@ -3,23 +3,24 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/filecoin-project/lotus/build"
-	"github.com/filecoin-project/lotus/chain/types"
-	"github.com/ipfs/go-cid"
 	"math/big"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/filecoin-project/lotus/build"
+	"github.com/filecoin-project/lotus/chain/types"
+	"github.com/ipfs/go-cid"
 )
 
 const PrecisionDefault = 8
 
-var BlocksPerEpoch = big.NewInt(build.BlocksPerEpoch)
+var BlocksPerEpoch = build.BlocksPerEpoch
 
 func ToFil(v *big.Int) float64 {
 	fbig, _ := big.NewFloat(0).SetString(v.String())
 	fv, _ := fbig.Float64()
-	return TruncateNative(fv/build.FilecoinPrecision, PrecisionDefault)
+	return TruncateNative(fv/float64(build.FilecoinPrecision), PrecisionDefault)
 }
 
 func ToFilStr(v *big.Int) string {
